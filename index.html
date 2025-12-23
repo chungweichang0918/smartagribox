@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Smart Agri Remote (ThingSpeak)</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root{
+      --bg:#070b1a;
+      --panel:rgba(255,255,255,.07);
+      --panel2:rgba(255,255,255,.045);
+      --border:rgba(255,255,255,.12);
+      --text:#e8eefc;
+      --muted:rgba(232,238,252,.68);
+      --shadow:0 18px 60px rgba(0,0,0,.45);
+      --ok:#3ddc97;
+      --warn:#ffb020;
+      --bad:#ff4d6d;
+      --info:#5bbcff;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans TC",Arial;
+      background:
+        radial-gradient(1200px 700px at 10% 0%, rgba(98,120,255,.22), transparent 55%),
+        radial-gradient(900px 600px at 90% 10%, rgba(0,220,255,.12), transparent 50%),
+        radial-gradient(900px 700px at 50% 100%, rgba(170,70,255,.12), transparent 60%),
+        var(--bg);
+      min-height:100vh;
+    }
+    .wrap{max-width:1100px;margin:0 auto;padding:18px 16px 26px;}
+    .top{
+      display:flex;gap:14px;align-items:flex-start;justify-content:space-between;
+      border:1px solid var(--border);
+      background:linear-gradient(180deg,var(--panel),var(--panel2));
+      box-shadow:var(--shadow);
+      border-radius:18px;
+      padding:16px;
+    }
+    .title{font-weight:900;font-size:22px;letter-spacing:.3px}
+    .sub{margin-top:8px;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}
+    .pill{
+      display:inline-flex;align-items:center;gap:6px;
+      padding:6px 10px;border-radius:999px;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.06);
+      font-weight:800;font-size:12px;
+    }
+    .dot{opacity:.6}
+    .right{
+      display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end;
+      min-width:320px;
+    }
+    select,button,input{
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:rgba(10,14,35,.7);
+      color:var(--text);
+      padding:10px 12px;
+      outline:none;
+    }
+    button{
+      background:rgba(255,255,255,.10);
+      font-weight:900;cursor:pointer;
+      transition:transform .08s ease, background .15s ease;
+    }
+    button:hover{transform:translateY(-1px);background:rgba(255,255,255,.14)}
+    button:disabled{opacity:.6;cursor:not-allowed;transform:none}
+    .grid{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0,1fr));
+      gap:12px;
+    }
+    .card{
+      border:1px solid var(--border);
+      background:linear-gradient(180deg,var(--panel),var(--panel2));
+      box-shadow:var(--shadow);
+      border-radius:18px;
+      padding:14px;
+      position:relative;
+      overflow:hidden;
+    }
+    .card:before{
+      content:"";
+      position:absolute;inset:-40%;
+      background:radial-gradient(circle at 30% 20%, rgba(255,255,255,.10), transparent 45%);
+      transform:rotate(8deg);
+      pointer-events:none;
+    }
+    .cardTop{display:flex;justify-content:space-between;align-items:center;gap:10px;position:relative}
+    .label{font-size:12px;color:var(--muted);letter-spacing:.2px}
+    .value{margin-top:10px;font-size:34px;font-weight:950;letter-spacing:.2px;position:relative}
+    .unit{font-size:14px;color:var(--muted);font-weight:800;margin-left:6px}
+    .hint{margin-top:8px;color:rgba(232,238,252,.5);font-size:12px;min-height:16px;position:relative}
+    .badge{
+      padding:6px 10px;border-radius:999px;font-weight:950;font-size:12px;border:1px solid var(--border);
+      background:rgba(255,255,255,.06);
+      position:relative;
+    }
+    .b-ok{color:var(--ok)}
+    .b-warn{color:var(--warn)}
+    .b-bad{color:var(--bad)}
+    .b-info{color:var(--info)}
+
+    .section{margin-top:18px}
+    .section h2{margin:0;font-size:16px;font-weight:950}
+    .section p{margin:6px 0 0;color:var(--muted);font-size:13px}
+
+    .charts{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+    .panel{
+      border:1px solid var(--border);
+      background:linear-gradient(180deg,var(--panel),var(--panel2));
+      box-shadow:var(--shadow);
+      border-radius:18px;
+      padding:12px 12px 10px;
+    }
+    .panelHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .panelTitle{font-weight:950}
+    .panelSub{font-size:12px;color:var(--muted)}
+    .canvasWrap{height:240px}
+
+    /* ✅ RWD 手機 */
+    @media (max-width: 900px){
+      .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .charts{grid-template-columns:1fr}
+      .right{min-width:0;width:100%;justify-content:space-between}
+      .top{flex-direction:column;align-items:stretch}
+    }
+    @media (max-width: 560px){
+      .grid{grid-template-columns:1fr}
+      select,button{width:100%}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="title">Smart Agri Remote Monitor (ThingSpeak)</div>
+        <div class="sub">
+          <span class="pill" id="statusPill">讀取中…</span>
+          <span class="dot">•</span>
+          <span id="lastText">Last: --</span>
+        </div>
+      </div>
+
+      <div class="right">
+        <label style="display:flex;gap:8px;align-items:center;color:var(--muted);font-size:13px;">
+          歷史區間
+          <select id="mins">
+            <option value="30">近 30 分鐘</option>
+            <option value="60" selected>近 1 小時</option>
+            <option value="180">近 3 小時</option>
+            <option value="720">近 12 小時</option>
+            <option value="1440">近 24 小時</option>
+          </select>
+        </label>
+        <button id="refreshBtn">更新</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="cardTop"><div class="label">Temperature</div><div class="badge b-info">°C</div></div>
+        <div class="value"><span id="temp">--</span><span class="unit">°C</span></div>
+        <div class="hint" id="tempHint">—</div>
+      </div>
+
+      <div class="card">
+        <div class="cardTop"><div class="label">Humidity</div><div class="badge b-info">%</div></div>
+        <div class="value"><span id="hum">--</span><span class="unit">%</span></div>
+        <div class="hint" id="humHint">—</div>
+      </div>
+
+      <div class="card">
+        <div class="cardTop"><div class="label">Light</div><div class="badge b-info">ADC</div></div>
+        <div class="value"><span id="ldr">--</span><span class="unit">ADC</span></div>
+        <div class="hint" id="ldrHint">—</div>
+      </div>
+
+      <div class="card">
+        <div class="cardTop">
+          <div class="label">Soil Moisture</div>
+          <div class="badge" id="soilBadge">--</div>
+        </div>
+        <div class="value"><span id="soil">--</span><span class="unit">ADC</span></div>
+        <div class="hint" id="soilHint">1000–2000 正常；>2000 偏乾</div>
+      </div>
+
+      <div class="card">
+        <div class="cardTop">
+          <div class="label">Pump</div>
+          <div class="badge" id="pumpBadge">--</div>
+        </div>
+        <div class="value"><span id="pump">--</span></div>
+        <div class="hint" id="pumpHint">—</div>
+      </div>
+
+      <div class="card">
+        <div class="cardTop"><div class="label">Soil Rule</div><div class="badge b-info">你的設定</div></div>
+        <div class="value">1000–2000<span class="unit">正常</span></div>
+        <div class="hint">&gt;2000 偏乾（可告警/澆水觸發）</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>歷史折線圖（分別顯示）</h2>
+      <p>來源：ThingSpeak feeds。每次更新會抓取指定分鐘數的資料。</p>
+    </div>
+
+    <div class="charts">
+      <div class="panel">
+        <div class="panelHead"><div class="panelTitle">Temperature</div><div class="panelSub" id="n1">—</div></div>
+        <div class="canvasWrap"><canvas id="c1"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panelHead"><div class="panelTitle">Humidity</div><div class="panelSub" id="n2">—</div></div>
+        <div class="canvasWrap"><canvas id="c2"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panelHead"><div class="panelTitle">Light (ADC)</div><div class="panelSub" id="n3">—</div></div>
+        <div class="canvasWrap"><canvas id="c3"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panelHead"><div class="panelTitle">Soil Moisture (ADC)</div><div class="panelSub" id="n4">—</div></div>
+        <div class="canvasWrap"><canvas id="c4"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ====== 你要填的 ======
+    const CHANNEL_ID = "3211953"; // 例如 "1234567"
+    const READ_API_KEY = "https://api.thingspeak.com/channels/3211953/feeds.json?results=60";               // 若 channel 私密，填 Read API Key；公開可留空
+
+    // Field mapping：你圖上四張圖 + pump 狀態
+    const F_TEMP = "field1";
+    const F_HUM  = "field2";
+    const F_LDR  = "field3";
+    const F_SOIL = "field4";
+    const F_PUMP = "field5"; // ✅ pump: 0/1
+
+    const TZ = "Asia/Taipei";
+
+    const $ = (id)=>document.getElementById(id);
+
+    function soilState(m){
+      if (!Number.isFinite(m)) return {label:"--", cls:"", hint:""};
+      if (m > 2000) return {label:"偏乾", cls:"b-warn", hint:"2000 以上偏乾"};
+      if (m >= 1000 && m <= 2000) return {label:"正常", cls:"b-ok", hint:"1000–2000 正常"};
+      return {label:"偏濕/低值", cls:"b-info", hint:"低於 1000（依校正可能偏濕）"};
+    }
+
+    function setStatus(ok, text){
+      const pill = $("statusPill");
+      pill.textContent = text;
+      pill.style.color = ok ? "var(--ok)" : "var(--warn)";
+    }
+
+    function fmtTime(iso){
+      const d = new Date(iso);
+      return d.toLocaleString("zh-TW",{timeZone:TZ, hour12:false});
+    }
+    function fmtHHMM(iso){
+      const d = new Date(iso);
+      return d.toLocaleTimeString("zh-TW",{timeZone:TZ, hour:"2-digit", minute:"2-digit", hour12:false});
+    }
+
+    function feedsUrl(results=200){
+      let url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds.json?results=${results}`;
+      if (READ_API_KEY) url += `&api_key=${READ_API_KEY}`;
+      return url;
+    }
+
+    async function fetchFeeds(){
+      const minutes = Number($("mins").value);
+      // 粗估：20秒一筆 => 1分鐘3筆 => minutes*3，再加一些緩衝
+      const results = Math.min(8000, Math.max(60, Math.floor(minutes*3.5)));
+      const url = feedsUrl(results);
+
+      const r = await fetch(url, {cache:"no-store"});
+      if (!r.ok) throw new Error("HTTP "+r.status);
+      const j = await r.json();
+      const feeds = Array.isArray(j.feeds) ? j.feeds : [];
+
+      // 只保留 minutes 範圍內
+      const now = Date.now();
+      const cut = now - minutes*60*1000;
+      const rows = feeds
+        .map(f=>({
+          ts: f.created_at,
+          t: fmtHHMM(f.created_at),
+          temp: Number(f[F_TEMP]),
+          hum: Number(f[F_HUM]),
+          ldr: Number(f[F_LDR]),
+          soil: Number(f[F_SOIL]),
+          pump: Number(f[F_PUMP]),
+        }))
+        .filter(x=> new Date(x.ts).getTime() >= cut)
+        .filter(x=> Number.isFinite(x.temp) || Number.isFinite(x.hum) || Number.isFinite(x.ldr) || Number.isFinite(x.soil));
+
+      return rows;
+    }
+
+    // ===== Charts =====
+    const baseOptions = {
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          intersect:false,
+          mode:"index",
+          callbacks:{
+            title:(items)=> items?.[0]?.label ?? ""
+          }
+        }
+      },
+      scales:{
+        x:{grid:{color:"rgba(255,255,255,.12)"}, ticks:{color:"rgba(232,238,252,.65)"}},
+        y:{grid:{color:"rgba(255,255,255,.12)"}, ticks:{color:"rgba(232,238,252,.65)"}}
+      }
+    };
+
+    function makeLine(canvasId, label){
+      const ctx = document.getElementById(canvasId).getContext("2d");
+      return new Chart(ctx,{
+        type:"line",
+        data:{labels:[], datasets:[{
+          label,
+          data:[],
+          borderWidth:2,
+          pointRadius:0,
+          tension:0.25
+        }]},
+        options: JSON.parse(JSON.stringify(baseOptions))
+      });
+    }
+
+    const ch1 = makeLine("c1","Temperature");
+    const ch2 = makeLine("c2","Humidity");
+    const ch3 = makeLine("c3","Light");
+    const ch4 = makeLine("c4","Soil");
+
+    function setChart(chart, labels, data){
+      chart.data.labels = labels;
+      chart.data.datasets[0].data = data;
+      chart.update();
+    }
+
+    function setLatestUI(rows){
+      const last = rows[rows.length-1];
+      $("lastText").textContent = "Last: " + (last?.ts ? fmtTime(last.ts) : "--");
+
+      // 最新值
+      $("temp").textContent = Number.isFinite(last?.temp) ? last.temp.toFixed(1) : "--";
+      $("hum").textContent  = Number.isFinite(last?.hum)  ? last.hum.toFixed(1) : "--";
+      $("ldr").textContent  = Number.isFinite(last?.ldr)  ? Math.trunc(last.ldr) : "--";
+      $("soil").textContent = Number.isFinite(last?.soil) ? Math.trunc(last.soil) : "--";
+
+      const ss = soilState(last?.soil);
+      const b = $("soilBadge");
+      b.textContent = ss.label;
+      b.className = "badge " + ss.cls;
+
+      // pump
+      const pump = Number.isFinite(last?.pump) ? last.pump : NaN;
+      const pb = $("pumpBadge");
+      if (pump === 1){
+        $("pump").textContent = "ON";
+        pb.textContent = "RUN";
+        pb.className = "badge b-warn";
+        $("pumpHint").textContent = "澆水中（Field5=1）";
+      } else if (pump === 0){
+        $("pump").textContent = "OFF";
+        pb.textContent = "IDLE";
+        pb.className = "badge b-ok";
+        $("pumpHint").textContent = "待命（Field5=0）";
+      } else {
+        $("pump").textContent = "--";
+        pb.textContent = "--";
+        pb.className = "badge";
+        $("pumpHint").textContent = "尚未提供 Field5";
+      }
+    }
+
+    function setCharts(rows){
+      const labels = rows.map(r=>r.t);
+
+      setChart(ch1, labels, rows.map(r=>r.temp));
+      setChart(ch2, labels, rows.map(r=>r.hum));
+      setChart(ch3, labels, rows.map(r=>r.ldr));
+      setChart(ch4, labels, rows.map(r=>r.soil));
+
+      $("n1").textContent = `${rows.length} 筆`;
+      $("n2").textContent = `${rows.length} 筆`;
+      $("n3").textContent = `${rows.length} 筆`;
+      $("n4").textContent = `${rows.length} 筆`;
+    }
+
+    async function refresh(){
+      $("refreshBtn").disabled = true;
+      try{
+        setStatus(true,"讀取中…");
+        const rows = await fetchFeeds();
+        if (!rows.length){
+          setStatus(false,"無資料（確認 Channel/Key）");
+          $("lastText").textContent = "Last: --";
+          return;
+        }
+        setStatus(true,"已更新");
+        setLatestUI(rows);
+        setCharts(rows);
+      }catch(e){
+        console.error(e);
+        setStatus(false,"讀取失敗（Channel/Key/網路）");
+      }finally{
+        $("refreshBtn").disabled = false;
+      }
+    }
+
+    $("refreshBtn").addEventListener("click", refresh);
+    $("mins").addEventListener("change", refresh);
+
+    // 每 20 秒自動更新
+    refresh();
+    setInterval(refresh, 20000);
+  </script>
+</body>
+</html>
