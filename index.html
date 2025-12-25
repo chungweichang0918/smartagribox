@@ -193,8 +193,7 @@
           <div class="badge" id="soilBadge">--</div>
         </div>
         <div class="value"><span id="soil">--</span><span class="unit">ADC</span></div>
-        <div class="hint" id="soilHint">1000–2000 正常；>2000 偏乾</div>
-      </div>
+        <div class="hint" id="soilHint">600-1000 正常；<500 偏乾 </div>
 
       <div class="card">
         <div class="cardTop">
@@ -207,8 +206,8 @@
 
       <div class="card">
         <div class="cardTop"><div class="label">Soil Rule</div><div class="badge b-info">你的設定</div></div>
-        <div class="value">1000–2000<span class="unit">正常</span></div>
-        <div class="hint">&gt;2000 偏乾（可告警/澆水觸發）</div>
+        <div class="value">600–1000<span class="unit">正常</span></div>
+        <div class="hint">&gt;400 偏乾（可告警/澆水觸發）</div>
       </div>
     </div>
 
@@ -255,8 +254,8 @@
 
     function soilState(m){
       if (!Number.isFinite(m)) return {label:"--", cls:"", hint:""};
-      if (m > 2000) return {label:"偏乾", cls:"b-warn", hint:"2000 以上偏乾"};
-      if (m >= 1000 && m <= 2000) return {label:"正常", cls:"b-ok", hint:"1000–2000 正常"};
+      if (m > 2000) return {label:"偏乾", cls:"b-warn", hint:"500 以下偏乾"};
+      if (m >= 1000 && m <= 2000) return {label:"正常", cls:"b-ok", hint:"600-1000 正常"};
       return {label:"偏濕/低值", cls:"b-info", hint:"低於 1000（依校正可能偏濕）"};
     }
 
